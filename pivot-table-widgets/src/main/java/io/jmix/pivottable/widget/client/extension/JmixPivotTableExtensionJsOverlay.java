@@ -27,8 +27,8 @@ public class JmixPivotTableExtensionJsOverlay {
         this.pivotElement = pivotElement;
     }
 
-    public String convertPivotTableToJson(JsPivotExtensionOptions config) {
-        return convertPivotTableToJson(pivotElement, config);
+    public String convertPivotTableToJson(JsPivotExtensionParser parser) {
+        return convertPivotTableToJson(pivotElement, parser);
     }
 
     protected static boolean isDate(String value, String format) {
@@ -49,7 +49,7 @@ public class JmixPivotTableExtensionJsOverlay {
         }
     }
 
-    protected static native String convertPivotTableToJson(Element pivotElement, JsPivotExtensionOptions config) /*-{
+    protected static native String convertPivotTableToJson(Element pivotElement, JsPivotExtensionParser parser) /*-{
         var tableElements = pivotElement.getElementsByClassName('pvtTable');
         if (tableElements.length === 0) {
             return;
@@ -67,9 +67,9 @@ public class JmixPivotTableExtensionJsOverlay {
             return !isNaN(num)
         };
 
-        var dateTimeFormat = config.dateTimeParseFormat;
-        var dateFormat = config.dateParseFormat;
-        var timeFormat = config.timeParseFormat;
+        var dateTimeFormat = parser.dateTimeParseFormat;
+        var dateFormat = parser.dateParseFormat;
+        var timeFormat = parser.timeParseFormat;
         var isDate = $entry(function(value, format){
             return @io.jmix.pivottable.widget.client.extension.JmixPivotTableExtensionJsOverlay::isDate(Ljava/lang/String;Ljava/lang/String;)(value, format);
         });

@@ -31,15 +31,14 @@ public class JmixPivotTableExtensionConnector extends AbstractExtensionConnector
     protected void extend(ServerConnector target) {
         final JmixPivotTableSceneWidget pivotWidget = (JmixPivotTableSceneWidget) ((ComponentConnector) target).getWidget();
 
-        JmixPivotTableExtensionJsOverlay jsOverlay = new JmixPivotTableExtensionJsOverlay(pivotWidget.getElement());
+        JsPivotExtensionParser parser = JsPivotExtensionParser.create();
 
         pivotWidget.setRefreshHandler(jsRefreshEvent -> {
-            JsPivotExtensionOptions options = JsPivotExtensionOptions.get();
-            options.setDateTimeParseFormat(options, getState().dateTimeParseFormat);
-            options.setDateParseFormat(options, getState().dateParseFormat);
-            options.setTimeParseFormat(options, getState().timeParseFormat);
+            parser.setDateTimeParseFormat(parser, getState().dateTimeParseFormat);
+            parser.setDateParseFormat(parser, getState().dateParseFormat);
+            parser.setTimeParseFormat(parser, getState().timeParseFormat);
 
-            String json = jsOverlay.convertPivotTableToJson(options);
+            String json = parser.parsePivotTableToJson(parser, pivotWidget.getElement());
             getRpcProxy(JmixPivotTableExtensionServerRpc.class).updatePivotDataJSON(json);
 
             if (jsRefreshEvent != null) {
