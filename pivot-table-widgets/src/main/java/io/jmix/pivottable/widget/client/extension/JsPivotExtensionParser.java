@@ -92,12 +92,9 @@ public class JsPivotExtensionParser extends JavaScriptObject {
                 var isDate = $entry(function(value, format){
                     return @io.jmix.pivottable.widget.client.extension.JsPivotExtensionParser::isDate(Ljava/lang/String;Ljava/lang/String;)(value, format);
                 });
-                var isNumeric = function(num){
-                    return !isNaN(num)
-                };
 
-                if (isNumeric(value)) {
-                    return 'NUMERIC';
+                if (!isNaN(value)) {
+                    return value % 1 == 0 ? 'INTEGER' : 'DOUBLE';
                 } else if (isDate(value, this.dateTimeFormat)) {
                     return 'DATE_TIME';
                 } else if (isDate(value, this.dateFormat)) {

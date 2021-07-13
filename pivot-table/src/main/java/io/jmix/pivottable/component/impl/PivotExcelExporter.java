@@ -36,6 +36,7 @@ import io.jmix.pivottable.model.extension.PivotDataCell;
 import io.jmix.pivottable.model.extension.PivotDataSeparatedCell;
 import org.apache.poi.hssf.usermodel.*;
 import org.apache.poi.ss.usermodel.CellType;
+import org.apache.poi.ss.usermodel.DataFormat;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.BeanDefinition;
@@ -85,6 +86,12 @@ public class PivotExcelExporter {
 
     protected HSSFCellStyle cellTimeStyle;
     protected HSSFCellStyle boldCellTimeStyle;
+
+    protected HSSFCellStyle cellIntegerStyle;
+    protected HSSFCellStyle boldCellIntegerStyle;
+
+    protected HSSFCellStyle cellDoubleStyle;
+    protected HSSFCellStyle boldCellDoubleStyle;
 
     protected String fileName;
     protected MetaClass entityMetaClass;
@@ -241,12 +248,15 @@ public class PivotExcelExporter {
 
                 PivotDataCell.Type type = cell.getType();
                 switch (type) {
-                    case NUMERIC:
+                    case DOUBLE:
                         hssfCell.setCellType(CellType.NUMERIC);
                         hssfCell.setCellValue(Double.parseDouble(cell.getValue()));
-                        if (cell.isBold()) {
-                            hssfCell.setCellStyle(cellLabelBoldStyle);
-                        }
+                        hssfCell.setCellStyle(cell.isBold() ? boldCellDoubleStyle : cellDoubleStyle);
+                        break;
+                    case INTEGER:
+                        hssfCell.setCellType(CellType.NUMERIC);
+                        hssfCell.setCellValue(Integer.parseInt(cell.getValue()));
+                        hssfCell.setCellStyle(cell.isBold() ? boldCellIntegerStyle : cellIntegerStyle);
                         break;
                     case DATE_TIME:
                         initDateTimeCell(hssfCell, cell, dateTimeFormatter, cellDateTimeStyle, boldCellDateTimeStyle);
@@ -350,26 +360,45 @@ public class PivotExcelExporter {
         cellLabelBoldStyle = wb.createCellStyle();
         cellLabelBoldStyle.setFont(boldFont);
 
+        String dateTimeFormat = messages.getMessage("pivotExcelExporter.dateTimeFormat");
         cellDateTimeStyle = wb.createCellStyle();
-        cellDateTimeStyle.setDataFormat(HSSFDataFormat.getBuiltinFormat("m/d/yy h:mm"));
-
+        cellDateTimeStyle.setDataFormat(HSSFDataFormat.getBuiltinFormat(dateTimeFormat));
         boldCellDateTimeStyle = wb.createCellStyle();
-        boldCellDateTimeStyle.setDataFormat(HSSFDataFormat.getBuiltinFormat("m/d/yy h:mm"));
+        boldCellDateTimeStyle.setDataFormat(HSSFDataFormat.getBuiltinFormat(dateTimeFormat));
         boldCellDateTimeStyle.setFont(boldFont);
 
+        String dateFormat = messages.getMessage("pivotExcelExporter.timeFormat");
         cellDateStyle = wb.createCellStyle();
-        cellDateStyle.setDataFormat(HSSFDataFormat.getBuiltinFormat("m/d/yy"));
-
+        cellDateStyle.setDataFormat(HSSFDataFormat.getBuiltinFormat(dateFormat));
         boldCellDateStyle = wb.createCellStyle();
-        boldCellDateStyle.setDataFormat(HSSFDataFormat.getBuiltinFormat("m/d/yy"));
+        boldCellDateStyle.setDataFormat(HSSFDataFormat.getBuiltinFormat(dateFormat));
         boldCellDateStyle.setFont(boldFont);
 
+        String timeFormat = messages.getMessage("pivotExcelExporter.timeFormat");
         cellTimeStyle = wb.createCellStyle();
-        cellTimeStyle.setDataFormat(HSSFDataFormat.getBuiltinFormat("h:mm"));
-
+        cellTimeStyle.setDataFormat(HSSFDataFormat.getBuiltinFormat(timeFormat));
         boldCellTimeStyle = wb.createCellStyle();
-        boldCellTimeStyle.setDataFormat(HSSFDataFormat.getBuiltinFormat("h:mm"));
+        boldCellTimeStyle.setDataFormat(HSSFDataFormat.getBuiltinFormat(timeFormat));
         boldCellTimeStyle.setFont(boldFont);
+
+        String integerFormat = messages.getMessage("pivotExcelExporter.integerFormat");
+        cellIntegerStyle = wb.createCellStyle();
+        cellIntegerStyle.setDataFormat(getBuiltinFormat(integerFormat));
+        boldCellIntegerStyle = wb.createCellStyle();
+        boldCellIntegerStyle.setDataFormat(getBuiltinFormat(integerFormat));
+        boldCellIntegerStyle.setFont(boldFont);
+
+        DataFormat format = wb.createDataFormat();
+        String doubleFormat = messages.getMessage("pivotExcelExporter.doubleFormat");
+        cellDoubleStyle = wb.createCellStyle();
+        cellDoubleStyle.setDataFormat(format.getFormat(doubleFormat));
+        boldCellDoubleStyle = wb.createCellStyle();
+        boldCellDoubleStyle.setDataFormat(format.getFormat(doubleFormat));
+        boldCellDoubleStyle.setFont(boldFont);
+    }
+
+    protected short getBuiltinFormat(String format) {
+        return HSSFDataFormat.getBuiltinFormat(format);
     }
 
     protected void showWarnNotification() {
