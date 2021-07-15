@@ -143,6 +143,19 @@ public class PivotTableDataItemsSerializer {
             formattedValue = BooleanUtils.isTrue((Boolean) value)
                     ? messages.getMessage("boolean.yes")
                     : messages.getMessage("boolean.no");
+        } else if (value instanceof Number) {
+            if (item instanceof EntityDataItem) {
+                EntityDataItem entityItem = (EntityDataItem) item;
+                MetaClass metaClass = metadata.getClass(entityItem.getItem());
+                MetaPropertyPath mpp = resolveMetaPropertyPath(metaClass, property);
+                if (mpp != null) {
+                    formattedValue = mpp.getRange().asDatatype().format(value, getUserLocale());
+                } else {
+                    formattedValue = value;
+                }
+            } else {
+                formattedValue = value;
+            }
         } else if (value instanceof Collection) {
             throw new GuiDevelopmentException(String.format("'%s' cannot be added as a property, because " +
                     "PivotTable doesn't support collections as properties", property), "");

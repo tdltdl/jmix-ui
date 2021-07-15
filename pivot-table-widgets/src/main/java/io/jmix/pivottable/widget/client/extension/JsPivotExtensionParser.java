@@ -27,6 +27,8 @@ public class JsPivotExtensionParser extends JavaScriptObject {
 
     public static native JsPivotExtensionParser create() /*-{
         return {
+           floatFormatAggregationIds: ['sum', 'average', 'minimum', 'maximum', 'sumOverSum', 'upperBound80', 'lowerBound80'],
+           integerFormatAggregationIds: ['count', 'countUniqueValues', 'integerSum'],
            boldClassNames: ['pvtTotal rowTotal', 'pvtTotal colTotal', 'pvtGrandTotal'],
            getTable: function(pivotElement) {
                 var tableElements = pivotElement.getElementsByClassName('pvtTable');
@@ -38,10 +40,10 @@ public class JsPivotExtensionParser extends JavaScriptObject {
            getColsRowsNumber: function(table, attributeName) {
                 return table.attributes[attributeName] ? table.attributes[attributeName].value : null;
            },
-           getRows: function(tableRows, appendIndex) {
+           getRows: function(tableRows, modelRowStartIndex) {
                 var modelRows = [];
                 for (var i = 0; i < tableRows.length; i++) {
-                    var modelRow = this.convertRowToModel(tableRows[i], i + appendIndex);
+                    var modelRow = this.convertRowToModel(tableRows[i], i + modelRowStartIndex);
                     modelRows.push(modelRow);
                 }
                 return modelRows;
@@ -82,28 +84,80 @@ public class JsPivotExtensionParser extends JavaScriptObject {
                         }
                     }
 
-                    modelCell.type = this.getCellType(modelCell.value);
+                    modelCell.type = this.getCellType({value: modelCell.value, isPvtLabel: cell.nodeName === 'TH'});
+                    modelCell.value = this.parseCellValue(modelCell);
 
                     modelRow.cells.push(modelCell);
                 }
                 return modelRow;
            },
-           getCellType: function(value) {
+           getCellType: function(valueObj) {
+                var value = valueObj.value;
+                if (!value) {
+                    return 'STRING';
+                }
+
                 var isDate = $entry(function(value, format){
                     return @io.jmix.pivottable.widget.client.extension.JsPivotExtensionParser::isDate(Ljava/lang/String;Ljava/lang/String;)(value, format);
                 });
 
-                if (!isNaN(value)) {
-                    return value % 1 == 0 ? 'INTEGER' : 'DOUBLE';
-                } else if (isDate(value, this.dateTimeFormat)) {
+                if (isDate(value, this.dateTimeFormat)) {
                     return 'DATE_TIME';
                 } else if (isDate(value, this.dateFormat)) {
                     return 'DATE';
                 } else if (isDate(value, this.timeFormat)) {
                     return 'TIME';
-                } else {
-                   return 'STRING';
                 }
+
+                if (valueObj.isPvtLabel) {
+                    // cell is a label check type like a Jmix Datatype
+
+                    // todo RP
+                    // decimal separator
+                    // group separator
+
+                    // integer or decimal or string
+                } else {
+                   // it is generated cell by aggregation, check cell type by current aggregation
+
+                   if (this.floatFormatAggregationIds.indexOf(this.aggregation) > -1) {
+                       var prefix = this.pivotMessages.floatFormat.prefix;
+                       var suffix = this.pivotMessages.floatFormat.suffix;
+                       if ((prefix && prefix.length > 0) || (suffix && suffix.length > 0)) {
+                            return 'STRING'
+                       }
+                       return 'DECIMAL';
+                   } else if (this.integerFormatAggregationIds.indexOf(this.aggregation) > -1) {
+                       var prefix = this.pivotMessages.integerFormat.prefix;
+                       var suffix = this.pivotMessages.integerFormat.suffix;
+                       if ((prefix && prefix.length > 0) || (suffix && suffix.length > 0)) {
+                            return 'STRING'
+                       }
+                       return 'INTEGER';
+                   } else if (!isNaN(value)) {
+                       return value % 1 == 0 ? 'INTEGER' : 'DECIMAL';
+                   }
+                }
+                return 'STRING';
+           },
+           parseCellValue: function(modelCell) {
+                if (modelCell.type === 'INTEGER') {
+                   // remove thousand separators
+                   var thousandSep = this.pivotMessages.integerFormat.thousandsSep;
+                   return modelCell.value.replaceAll(thousandSep, "");
+                } else if (modelCell.type === 'DECIMAL') {
+                   // remove thousand separators
+                   var thousandSep = this.pivotMessages.floatFormat.thousandsSep;
+                   var result = modelCell.value.replaceAll(thousandSep, "");
+
+                   // replace decimal separator if it is not a dot
+                   var decimalSep = this.pivotMessages.floatFormat.decimalSep;
+                   if (decimalSep !== '.') {
+                      result = result.replace(decimalSep, ".");
+                   }
+                   return result;
+                }
+                return modelCell.value;
            }
         };
     }-*/;
@@ -118,6 +172,14 @@ public class JsPivotExtensionParser extends JavaScriptObject {
 
     public final native void setTimeParseFormat(JsPivotExtensionParser parser, String format) /*-{
         parser.timeParseFormat = format;
+    }-*/ ;
+
+    public final native void setPivotMessages(JsPivotExtensionParser parser, JavaScriptObject pivotMessages) /*-{
+        parser.pivotMessages = pivotMessages;
+    }-*/ ;
+
+    public final native void setAggregation(JsPivotExtensionParser parser, String aggregation) /*-{
+        parser.aggregation = aggregation;
     }-*/ ;
 
     public final native String parsePivotTableToJson(JsPivotExtensionParser parser, Element pivotElement) /*-{

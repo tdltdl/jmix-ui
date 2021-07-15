@@ -20,6 +20,8 @@ package io.jmix.pivottable.component.impl;
 import io.jmix.core.CoreProperties;
 import io.jmix.core.MessageTools;
 import io.jmix.core.Messages;
+import io.jmix.core.metamodel.datatype.Datatype;
+import io.jmix.core.metamodel.datatype.DatatypeRegistry;
 import io.jmix.core.metamodel.model.MetaClass;
 import io.jmix.ui.Notifications;
 import io.jmix.ui.UiProperties;
@@ -46,6 +48,7 @@ import org.springframework.stereotype.Component;
 import javax.annotation.Nullable;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.List;
@@ -100,8 +103,11 @@ public class PivotExcelExporter {
     protected Downloader downloader;
 
     protected String dateTimeParseFormat;
+    protected SimpleDateFormat dateTimeFormatter;
     protected String dateParseFormat;
+    protected SimpleDateFormat dateFormatter;
     protected String timeParseFormat;
+    protected SimpleDateFormat timeFormatter;
 
     protected Notifications notifications;
 
@@ -113,6 +119,9 @@ public class PivotExcelExporter {
 
     @Autowired
     protected MessageTools messageTools;
+
+    @Autowired
+    protected DatatypeRegistry datatypeRegistry;
 
     public PivotExcelExporter(PivotTable pivotTable) {
         init(pivotTable);
@@ -220,19 +229,6 @@ public class PivotExcelExporter {
         PivotDataExcelHelper excelUtils = new PivotDataExcelHelper(pivotData);
         List<List<PivotDataSeparatedCell>> dataRows = excelUtils.getRows();
 
-        SimpleDateFormat dateTimeFormatter = null;
-        if (!isNullOrEmpty(dateTimeParseFormat)) {
-            dateTimeFormatter = new SimpleDateFormat(dateTimeParseFormat);
-        }
-        SimpleDateFormat dateFormatter = null;
-        if (!isNullOrEmpty(dateParseFormat)) {
-            dateFormatter = new SimpleDateFormat(dateParseFormat);
-        }
-        SimpleDateFormat timeFormatter = null;
-        if (!isNullOrEmpty(timeParseFormat)) {
-            timeFormatter = new SimpleDateFormat(timeParseFormat);
-        }
-
         int columns = excelUtils.getOriginColumnsNumber();
         ExcelAutoColumnSizer[] sizers = columns != -1 ? new ExcelAutoColumnSizer[columns] : null;
 
@@ -245,36 +241,7 @@ public class PivotExcelExporter {
             List<PivotDataSeparatedCell> row = dataRows.get(i);
             for (PivotDataSeparatedCell cell : row) {
                 HSSFCell hssfCell = hssfRow.createCell(cell.getIndexCol());
-
-                PivotDataCell.Type type = cell.getType();
-                switch (type) {
-                    case DOUBLE:
-                        hssfCell.setCellType(CellType.NUMERIC);
-                        hssfCell.setCellValue(Double.parseDouble(cell.getValue()));
-                        hssfCell.setCellStyle(cell.isBold() ? boldCellDoubleStyle : cellDoubleStyle);
-                        break;
-                    case INTEGER:
-                        hssfCell.setCellType(CellType.NUMERIC);
-                        hssfCell.setCellValue(Integer.parseInt(cell.getValue()));
-                        hssfCell.setCellStyle(cell.isBold() ? boldCellIntegerStyle : cellIntegerStyle);
-                        break;
-                    case DATE_TIME:
-                        initDateTimeCell(hssfCell, cell, dateTimeFormatter, cellDateTimeStyle, boldCellDateTimeStyle);
-                        break;
-                    case DATE:
-                        initDateTimeCell(hssfCell, cell, dateFormatter, cellDateStyle, boldCellDateStyle);
-                        break;
-                    case TIME:
-                        initDateTimeCell(hssfCell, cell, timeFormatter, cellTimeStyle, boldCellTimeStyle);
-                        break;
-                    case STRING:
-                        hssfCell.setCellType(CellType.STRING);
-                        hssfCell.setCellValue(cell.getValue());
-                        if (cell.isBold()) {
-                            hssfCell.setCellStyle(cellLabelBoldStyle);
-                        }
-                        break;
-                }
+                initCell(hssfCell, cell);
 
                 if (sizers != null) {
                     updateColumnSize(sizers, cell);
@@ -288,26 +255,49 @@ public class PivotExcelExporter {
             }
         }
 
-        for (String id : excelUtils.getCellIdsToMerged()) {
-            int firstRow = excelUtils.getFirstRowById(id);
-            int lastRow = excelUtils.getLastRowById(id);
-
-            if (firstRow >= MAX_ROW_INDEX) {
-                break;
-            }
-
-            if (lastRow > MAX_ROW_INDEX) {
-                lastRow = MAX_ROW_INDEX;
-            }
-
-            CellRangeAddress rangeAddress = new CellRangeAddress(
-                    firstRow,
-                    lastRow,
-                    excelUtils.getFirstColById(id),
-                    excelUtils.getLastColById(id)
-            );
-
+        for (CellRangeAddress rangeAddress : excelUtils.getCellRangeAddresses()) {
             sheet.addMergedRegion(rangeAddress);
+        }
+    }
+
+    protected void initCell(HSSFCell hssfCell, PivotDataSeparatedCell cell) {
+        PivotDataCell.Type type = cell.getType();
+        switch (type) {
+            case DECIMAL:
+                BigDecimal value = new BigDecimal(cell.getValue());
+                Datatype<BigDecimal> datatype = datatypeRegistry.get(BigDecimal.class);
+                String formattedValue = datatype.format(value);
+                try {
+                    value = datatype.parse(formattedValue);
+                } catch (ParseException e) {
+                    throw new RuntimeException("Unable to parse numeric value", e);
+                }
+                hssfCell.setCellType(CellType.NUMERIC);
+                //noinspection ConstantConditions
+                hssfCell.setCellValue(value.doubleValue());
+                hssfCell.setCellStyle(cell.isBold() ? boldCellDoubleStyle : cellDoubleStyle);
+                break;
+            case INTEGER:
+                hssfCell.setCellType(CellType.NUMERIC);
+                hssfCell.setCellValue(Integer.parseInt(cell.getValue()));
+                hssfCell.setCellStyle(cell.isBold() ? boldCellIntegerStyle : cellIntegerStyle);
+                break;
+            case DATE_TIME:
+                initDateTimeCell(hssfCell, cell, dateTimeFormatter, cellDateTimeStyle, boldCellDateTimeStyle);
+                break;
+            case DATE:
+                initDateTimeCell(hssfCell, cell, dateFormatter, cellDateStyle, boldCellDateStyle);
+                break;
+            case TIME:
+                initDateTimeCell(hssfCell, cell, timeFormatter, cellTimeStyle, boldCellTimeStyle);
+                break;
+            default:
+                hssfCell.setCellType(CellType.STRING);
+                hssfCell.setCellValue(cell.getValue());
+                if (cell.isBold()) {
+                    hssfCell.setCellStyle(cellLabelBoldStyle);
+                }
+                break;
         }
     }
 
@@ -460,6 +450,10 @@ public class PivotExcelExporter {
      */
     public void setDateTimeParseFormat(String dateTimeParseFormat) {
         this.dateTimeParseFormat = dateTimeParseFormat;
+
+        if (!isNullOrEmpty(dateTimeParseFormat)) {
+            dateTimeFormatter = new SimpleDateFormat(dateTimeParseFormat);
+        }
     }
 
     /**
@@ -478,6 +472,10 @@ public class PivotExcelExporter {
      */
     public void setDateParseFormat(String dateParseFormat) {
         this.dateParseFormat = dateParseFormat;
+
+        if (!isNullOrEmpty(dateParseFormat)) {
+            dateFormatter = new SimpleDateFormat(dateParseFormat);
+        }
     }
 
     /**
@@ -496,5 +494,9 @@ public class PivotExcelExporter {
      */
     public void setTimeParseFormat(String timeParseFormat) {
         this.timeParseFormat = timeParseFormat;
+
+        if (!isNullOrEmpty(timeParseFormat)) {
+            timeFormatter = new SimpleDateFormat(timeParseFormat);
+        }
     }
 }
