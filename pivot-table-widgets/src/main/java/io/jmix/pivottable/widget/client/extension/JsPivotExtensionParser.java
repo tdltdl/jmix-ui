@@ -112,11 +112,26 @@ public class JsPivotExtensionParser extends JavaScriptObject {
                 if (valueObj.isPvtLabel) {
                     // cell is a label check type like a Jmix Datatype
 
-                    // todo RP
-                    // decimal separator
-                    // group separator
+                    // trying to convert to decimal number
+                    var thousandSep = this.pivotMessages.floatFormat.thousandsSep;
+                    var decimalVal = value.replaceAll(thousandSep, "");
 
-                    // integer or decimal or string
+                    var decimalSep = this.pivotMessages.floatFormat.decimalSep;
+                    if (decimalSep !== '.') {
+                        decimalVal = decimalVal.replace(decimalSep, ".");
+                    }
+                    if (decimalVal.includes(decimalSep) && !isNaN(decimalVal)) {
+                        return 'DECIMAL';
+                    }
+
+                    // trying to convert to integer number
+                    thousandSep = this.pivotMessages.integerFormat.thousandsSep;
+                    var integerVal = value.replaceAll(thousandSep, "");
+                    if (!isNaN(integerVal)) {
+                        return 'INTEGER';
+                    }
+
+                    return 'STRING';
                 } else {
                    // it is generated cell by aggregation, check cell type by current aggregation
 
@@ -127,6 +142,7 @@ public class JsPivotExtensionParser extends JavaScriptObject {
                             return 'STRING'
                        }
                        return 'DECIMAL';
+
                    } else if (this.integerFormatAggregationIds.indexOf(this.aggregation) > -1) {
                        var prefix = this.pivotMessages.integerFormat.prefix;
                        var suffix = this.pivotMessages.integerFormat.suffix;
@@ -142,11 +158,10 @@ public class JsPivotExtensionParser extends JavaScriptObject {
            },
            parseCellValue: function(modelCell) {
                 if (modelCell.type === 'INTEGER') {
-                   // remove thousand separators
                    var thousandSep = this.pivotMessages.integerFormat.thousandsSep;
                    return modelCell.value.replaceAll(thousandSep, "");
+
                 } else if (modelCell.type === 'DECIMAL') {
-                   // remove thousand separators
                    var thousandSep = this.pivotMessages.floatFormat.thousandsSep;
                    var result = modelCell.value.replaceAll(thousandSep, "");
 
