@@ -157,6 +157,8 @@ public class JsPivotExtensionParser extends JavaScriptObject {
                 return 'STRING';
            },
            parseCellValue: function(modelCell) {
+                // parse cell value, because numbers in label may have incorrect formatting
+
                 if (modelCell.type === 'INTEGER') {
                    var thousandSep = this.pivotMessages.integerFormat.thousandsSep;
                    return modelCell.value.replaceAll(thousandSep, "");

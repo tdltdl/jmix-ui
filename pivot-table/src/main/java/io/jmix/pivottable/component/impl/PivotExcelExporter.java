@@ -23,6 +23,7 @@ import io.jmix.core.Messages;
 import io.jmix.core.metamodel.datatype.Datatype;
 import io.jmix.core.metamodel.datatype.DatatypeRegistry;
 import io.jmix.core.metamodel.model.MetaClass;
+import io.jmix.core.security.CurrentAuthentication;
 import io.jmix.ui.Notifications;
 import io.jmix.ui.UiProperties;
 import io.jmix.ui.component.ComponentsHelper;
@@ -113,15 +114,14 @@ public class PivotExcelExporter {
 
     @Autowired
     protected CoreProperties coreProperties;
-
     @Autowired
     protected UiProperties uiProperties;
-
     @Autowired
     protected MessageTools messageTools;
-
     @Autowired
     protected DatatypeRegistry datatypeRegistry;
+    @Autowired
+    protected CurrentAuthentication currentAuthentication;
 
     public PivotExcelExporter(PivotTable pivotTable) {
         init(pivotTable);
@@ -264,22 +264,31 @@ public class PivotExcelExporter {
         PivotDataCell.Type type = cell.getType();
         switch (type) {
             case DECIMAL:
-                BigDecimal value = new BigDecimal(cell.getValue());
-                Datatype<BigDecimal> datatype = datatypeRegistry.get(BigDecimal.class);
-                String formattedValue = datatype.format(value);
+                BigDecimal bigDecimal = new BigDecimal(cell.getValue());
+                Datatype<BigDecimal> bigDecimalDatatype = datatypeRegistry.get(BigDecimal.class);
+                String formattedValue = bigDecimalDatatype.format(bigDecimal, currentAuthentication.getLocale());
                 try {
-                    value = datatype.parse(formattedValue);
+                    bigDecimal = bigDecimalDatatype.parse(formattedValue, currentAuthentication.getLocale());
                 } catch (ParseException e) {
                     throw new RuntimeException("Unable to parse numeric value", e);
                 }
                 hssfCell.setCellType(CellType.NUMERIC);
                 //noinspection ConstantConditions
-                hssfCell.setCellValue(value.doubleValue());
+                hssfCell.setCellValue(bigDecimal.doubleValue());
                 hssfCell.setCellStyle(cell.isBold() ? boldCellDoubleStyle : cellDoubleStyle);
                 break;
             case INTEGER:
+                Long longValue = Long.parseLong(cell.getValue());
+                Datatype<Long> longDatatype = datatypeRegistry.get(Long.class);
+                String formattedIntValue = longDatatype.format(longValue, currentAuthentication.getLocale());
+                try {
+                    longValue = longDatatype.parse(formattedIntValue, currentAuthentication.getLocale());
+                } catch (ParseException e) {
+                    throw new RuntimeException("Unable to parse numeric value", e);
+                }
                 hssfCell.setCellType(CellType.NUMERIC);
-                hssfCell.setCellValue(Integer.parseInt(cell.getValue()));
+                //noinspection ConstantConditions
+                hssfCell.setCellValue(longValue);
                 hssfCell.setCellStyle(cell.isBold() ? boldCellIntegerStyle : cellIntegerStyle);
                 break;
             case DATE_TIME:
