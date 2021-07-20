@@ -17,6 +17,7 @@
 package io.jmix.pivottable.component.impl;
 
 import com.google.common.collect.Sets;
+import io.jmix.core.common.util.Preconditions;
 import io.jmix.ui.download.Downloader;
 import io.jmix.pivottable.component.PivotTable;
 import io.jmix.pivottable.component.PivotTableExtension;
@@ -43,6 +44,9 @@ public class PivotTableExtensionImpl implements PivotTableExtension {
     protected PivotTable pivotTable;
 
     public PivotTableExtensionImpl(PivotTable pivotTable, PivotExcelExporter exporter) {
+        Preconditions.checkNotNullArgument(pivotTable);
+        Preconditions.checkNotNullArgument(exporter);
+
         this.pivotTable = pivotTable;
         this.excelExporter = exporter;
         this.excelExporter.init(pivotTable);
@@ -122,6 +126,16 @@ public class PivotTableExtensionImpl implements PivotTableExtension {
     @Override
     public boolean isRendererSupported(Renderer renderer) {
         return supportedRenderers.contains(renderer);
+    }
+
+    @Override
+    public PivotExcelExporter.ExportFormat getExportFormat() {
+        return excelExporter.getExportFormat();
+    }
+
+    @Override
+    public void setExportFormat(PivotExcelExporter.ExportFormat exportFormat) {
+        excelExporter.setExportFormat(exportFormat);
     }
 
     protected void setupParseFormats() {
