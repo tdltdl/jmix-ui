@@ -42,10 +42,7 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
 import java.time.temporal.Temporal;
-import java.util.Collection;
-import java.util.Date;
-import java.util.List;
-import java.util.Locale;
+import java.util.*;
 import java.util.function.Consumer;
 
 @Component("ui_PivotTableDataItemsSerializer")
@@ -126,36 +123,15 @@ public class PivotTableDataItemsSerializer {
             formattedValue = metadataTools.getInstanceName(value);
         } else if (value instanceof Enum) {
             formattedValue = messages.getMessage((Enum) value);
-        } else if (value instanceof Date || value instanceof Temporal) {
-            if (item instanceof EntityDataItem) {
-                EntityDataItem entityItem = (EntityDataItem) item;
-                MetaClass metaClass = metadata.getClass(entityItem.getItem());
-                MetaPropertyPath mpp = resolveMetaPropertyPath(metaClass, property);
-                if (mpp != null) {
-                    formattedValue = mpp.getRange().asDatatype().format(value, getUserLocale());
-                } else {
-                    formattedValue = getDateTimeFormattedValue(value, getUserLocale());
-                }
-            } else {
-                formattedValue = getDateTimeFormattedValue(value, getUserLocale());
-            }
+        } else if (value instanceof Date
+                || value instanceof Temporal
+                || value instanceof Number) {
+            formattedValue = getFormattedValueByEntityDatatype(item, property, value)
+                    .orElse(getFormattedValueByClassDatatype(value, getUserLocale()));
         } else if (value instanceof Boolean) {
             formattedValue = BooleanUtils.isTrue((Boolean) value)
                     ? messages.getMessage("boolean.yes")
                     : messages.getMessage("boolean.no");
-        } else if (value instanceof Number) {
-            if (item instanceof EntityDataItem) {
-                EntityDataItem entityItem = (EntityDataItem) item;
-                MetaClass metaClass = metadata.getClass(entityItem.getItem());
-                MetaPropertyPath mpp = resolveMetaPropertyPath(metaClass, property);
-                if (mpp != null) {
-                    formattedValue = mpp.getRange().asDatatype().format(value, getUserLocale());
-                } else {
-                    formattedValue = value;
-                }
-            } else {
-                formattedValue = value;
-            }
         } else if (value instanceof Collection) {
             throw new GuiDevelopmentException(String.format("'%s' cannot be added as a property, because " +
                     "PivotTable doesn't support collections as properties", property), "");
@@ -164,6 +140,18 @@ public class PivotTableDataItemsSerializer {
         }
 
         jsonObject.add(context.getLocalizedPropertyName(property), context.serialize(formattedValue));
+    }
+
+    protected Optional<String> getFormattedValueByEntityDatatype(DataItem item, String property, Object value) {
+        if (item instanceof EntityDataItem) {
+            EntityDataItem entityItem = (EntityDataItem) item;
+            MetaClass metaClass = metadata.getClass(entityItem.getItem());
+            MetaPropertyPath mpp = resolveMetaPropertyPath(metaClass, property);
+            if (mpp != null) {
+                return Optional.of(mpp.getRange().asDatatype().format(value, getUserLocale()));
+            }
+        }
+        return Optional.empty();
     }
 
     protected MetaPropertyPath resolveMetaPropertyPath(MetaClass metaClass, String property) {
@@ -176,7 +164,7 @@ public class PivotTableDataItemsSerializer {
         return mpp;
     }
 
-    protected String getDateTimeFormattedValue(Object value, Locale locale) {
+    protected String getFormattedValueByClassDatatype(Object value, Locale locale) {
         Datatype<?> datatype = datatypeRegistry.get(value.getClass());
         return datatype.format(value, locale);
     }
